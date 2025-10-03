@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract Editions1155 is ERC1155, Ownable {
+    mapping(uint256 => uint256) public maxSupply;
+    mapping(uint256 => uint256) public minted;
+    mapping(uint256 => uint256) public price; // per edition price in wei
+
+    constructor(string memory uri_) ERC1155(uri_) {}
+
+    function createEdition(uint256 id, uint256 _maxSupply, uint256 _price) external onlyOwner {
+        require(maxSupply[id] == 0, "Exists");
+        maxSupply[id] = _maxSupply;
+        price[id] = _price;
+    }
+
+    function mint(uint256 id, uint256 amt) external payable {
+        require(maxSupply[id] > 0, "No edition");
+        require(minted[id] + amt <= maxSupply[id], "Exceeds supply");
+        require(msg.value >= price[id] * amt, "Wrong ETH");
+        minted[id] += amt;
+        _mint(msg.sender, id, amt, "");
+    }
+
+    function uri(uint256 id) public view override returns (string memory) {
+        return super.uri(id); // rely on on-chain or off-chain templated URI
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
