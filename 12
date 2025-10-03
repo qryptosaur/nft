@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "erc721a/contracts/ERC721A.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract ERC721ABatch is ERC721A, Ownable {
+    uint256 public immutable MAX_SUPPLY;
+    uint256 public mintPrice;
+    string private baseURI_;
+
+    constructor(string memory name_, string memory symbol_, string memory baseURI__, uint256 maxSupply_, uint256 price_) 
+        ERC721A(name_, symbol_) 
+    {
+        baseURI_ = baseURI__;
+        MAX_SUPPLY = maxSupply_;
+        mintPrice = price_;
+    }
+
+    function mint(uint256 quantity) external payable {
+        require(totalSupply() + quantity <= MAX_SUPPLY, "Max supply");
+        require(msg.value >= quantity * mintPrice, "Wrong ETH");
+        _safeMint(msg.sender, quantity);
+    }
+
+    function ownerMint(address to, uint256 quantity) external onlyOwner {
+        require(totalSupply() + quantity <= MAX_SUPPLY, "Max supply");
+        _safeMint(to, quantity);
+    }
+
+    function setBaseURI(string calldata uri) external onlyOwner {
+        baseURI_ = uri;
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI_;
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
