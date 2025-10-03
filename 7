@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract BAYCStyle is ERC721Enumerable, Ownable {
+    uint256 public immutable MAX_SUPPLY;
+    uint256 public mintPrice;
+    uint256 public immutable MAX_PER_TX;
+    string private baseTokenURI;
+    bool public saleActive = false;
+
+    constructor(
+        string memory baseURI_,
+        uint256 maxSupply_,
+        uint256 mintPrice_,
+        uint256 maxPerTx_
+    ) ERC721("Example Bored Apes", "eBAYC") {
+        baseTokenURI = baseURI_;
+        MAX_SUPPLY = maxSupply_;
+        mintPrice = mintPrice_;
+        MAX_PER_TX = maxPerTx_;
+    }
+
+    function flipSaleState() external onlyOwner {
+        saleActive = !saleActive;
+    }
+
+    function setPrice(uint256 _price) external onlyOwner {
+        mintPrice = _price;
+    }
+
+    function mint(uint256 num) external payable {
+        require(saleActive, "Sale not active");
+        require(num > 0 && num <= MAX_PER_TX, "Invalid num");
+        require(totalSupply() + num <= MAX_SUPPLY, "Max supply");
+        require(msg.value >= num * mintPrice, "Wrong ETH");
+
+        for (uint256 i = 0; i < num; i++) {
+            uint256 tokenId = totalSupply();
+            _safeMint(msg.sender, tokenId + 1);
+        }
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseTokenURI;
+    }
+
+    function setBaseURI(string calldata uri) external onlyOwner {
+        baseTokenURI = uri;
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
