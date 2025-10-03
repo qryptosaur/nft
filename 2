@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract ERC721Collection is ERC721Enumerable, Ownable {
+    uint256 public constant MAX_SUPPLY = 10000;
+    uint256 public constant MAX_PER_TX = 20;
+    uint256 public mintPrice = 0.05 ether;
+
+    string private baseURI_;
+    bool public saleActive = false;
+
+    constructor(string memory baseURI_) ERC721("MyCollection", "MYC") {
+        baseURI_ = baseURI_;
+    }
+
+    function flipSaleState() external onlyOwner {
+        saleActive = !saleActive;
+    }
+
+    function mint(uint256 num) external payable {
+        require(saleActive, "Sale not active");
+        require(num > 0 && num <= MAX_PER_TX, "Invalid num");
+        require(totalSupply() + num <= MAX_SUPPLY, "Exceeds supply");
+        require(msg.value >= num * mintPrice, "Wrong ETH sent");
+
+        for (uint256 i = 0; i < num; i++) {
+            uint256 tokenId = totalSupply();
+            _safeMint(msg.sender, tokenId);
+        }
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI_;
+    }
+
+    function setBaseURI(string memory newBase) external onlyOwner {
+        baseURI_ = newBase;
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
