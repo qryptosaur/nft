@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract ProvenanceRevealNFT is ERC721Enumerable, Ownable {
+    uint256 public maxSupply;
+    uint256 public mintPrice;
+    string public provenanceHash; // set once before reveal
+    string private baseURI_;
+    string private unrevealedURI;
+    bool public revealed = false;
+
+    constructor(string memory unrevealedURI_, string memory baseURI_, uint256 _maxSupply, uint256 _mintPrice)
+        ERC721("ProvenanceNFT", "PROV")
+    {
+        unrevealedURI = unrevealedURI_;
+        baseURI_ = baseURI_;
+        maxSupply = _maxSupply;
+        mintPrice = _mintPrice;
+    }
+
+    function setProvenanceHash(string calldata hash_) external onlyOwner {
+        require(bytes(provenanceHash).length == 0, "Already set");
+        provenanceHash = hash_;
+    }
+
+    function reveal() external onlyOwner {
+        revealed = true;
+    }
+
+    function mint(uint256 qty) external payable {
+        require(totalSupply() + qty <= maxSupply, "Max supply");
+        require(msg.value >= qty * mintPrice, "Wrong ETH");
+        for (uint256 i = 0; i < qty; i++) {
+            _safeMint(msg.sender, totalSupply() + 1);
+        }
+    }
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_exists(tokenId), "Not exist");
+        if (!revealed) {
+            return unrevealedURI;
+        }
+        return string(abi.encodePacked(baseURI_, _toString(tokenId)));
+    }
+
+    // small helper to convert uint->string (kept internal to avoid importing Strings lib)
+    function _toString(uint256 value) internal pure returns (string memory) {
+        // Inspired by OpenZeppelin Strings.toString
+        if (value == 0) { return "0"; }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) { digits++; temp /= 10; }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
+
+    function setBaseURI(string calldata uri) external onlyOwner {
+        baseURI_ = uri;
+    }
+
+    function setUnrevealedURI(string calldata uri) external onlyOwner {
+        unrevealedURI = uri;
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
