@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+
+contract RoleBasedPausableNFT is ERC721Enumerable, AccessControl, Pausable {
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    uint256 public nextTokenId;
+    string private baseURI_;
+
+    constructor(string memory baseURI_) ERC721("RoleNFT", "RNFT") {
+        baseURI_ = baseURI_;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(MINTER_ROLE, msg.sender);
+        _setupRole(PAUSER_ROLE, msg.sender);
+    }
+
+    function mint(address to) external onlyRole(MINTER_ROLE) whenNotPaused {
+        _safeMint(to, nextTokenId);
+        nextTokenId++;
+    }
+
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
+        internal
+        override
+        whenNotPaused
+    {
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
+    }
+
+    function setBaseURI(string calldata uri) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        baseURI_ = uri;
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI_;
+    }
+}
