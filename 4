@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MultiEditionNFT is ERC1155, Ownable {
+    // token id => max supply
+    mapping(uint256 => uint256) public maxSupply;
+    mapping(uint256 => uint256) public minted;
+
+    constructor(string memory uri_) ERC1155(uri_) {}
+
+    function createEdition(uint256 id, uint256 _max) external onlyOwner {
+        require(maxSupply[id] == 0, "Already created");
+        maxSupply[id] = _max;
+    }
+
+    function mint(uint256 id, uint256 amount) external payable {
+        require(maxSupply[id] > 0, "Not exist");
+        require(minted[id] + amount <= maxSupply[id], "Exceeds supply");
+
+        minted[id] += amount;
+        _mint(msg.sender, id, amount, "");
+    }
+
+    function setURI(string memory newuri) external onlyOwner {
+        _setURI(newuri);
+    }
+}
