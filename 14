@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+contract LazyMintNFT is ERC721URIStorage, Ownable {
+    using ECDSA for bytes32;
+    address public signer; // authorized signer for vouchers
+    uint256 public nextTokenId;
+
+    struct Voucher {
+        address to;
+        string uri;
+        uint256 minPrice;
+        uint256 nonce;
+    }
+
+    bytes32 private constant VOUCHER_TYPEHASH = keccak256("Voucher(address to,string uri,uint256 minPrice,uint256 nonce)");
+
+    constructor(string memory name_, string memory symbol_, address signer_) ERC721(name_, symbol_) {
+        signer = signer_;
+    }
+
+    function setSigner(address s) external onlyOwner {
+        signer = s;
+    }
+
+    function redeem(Voucher calldata voucher, bytes calldata signature) external payable {
+        require(msg.value >= voucher.minPrice, "Insufficient funds");
+        bytes32 digest = _hashVoucher(voucher);
+        address recovered = digest.toEthSignedMessageHash().recover(signature);
+        require(recovered == signer, "Invalid signature");
+        require(recovered != address(0), "Zero signer");
+
+        uint256 id = nextTokenId;
+        nextTokenId++;
+        _safeMint(voucher.to, id);
+        _setTokenURI(id, voucher.uri);
+    }
+
+    function _hashVoucher(Voucher calldata v) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(
+            VOUCHER_TYPEHASH,
+            v.to,
+            keccak256(bytes(v.uri)),
+            v.minPrice,
+            v.nonce
+        ));
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
