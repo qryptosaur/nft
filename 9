@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
+contract MerkleWhitelistNFT is ERC721Enumerable, Ownable {
+    bytes32 public merkleRoot;
+    uint256 public mintPrice;
+    string private baseURI_;
+    uint256 public maxSupply;
+    mapping(address => uint256) public minted;
+
+    constructor(string memory baseURI, uint256 _maxSupply, uint256 _mintPrice) ERC721("WhitelistNFT", "WNFT") {
+        baseURI_ = baseURI;
+        maxSupply = _maxSupply;
+        mintPrice = _mintPrice;
+    }
+
+    function setMerkleRoot(bytes32 root) external onlyOwner {
+        merkleRoot = root;
+    }
+
+    function presaleMint(bytes32[] calldata proof, uint256 qty) external payable {
+        require(totalSupply() + qty <= maxSupply, "Max supply");
+        require(msg.value >= qty * mintPrice, "Wrong ETH");
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(MerkleProof.verify(proof, merkleRoot, leaf), "Not whitelisted");
+        minted[msg.sender] += qty;
+        for (uint256 i = 0; i < qty; i++) {
+            _safeMint(msg.sender, totalSupply()+1);
+        }
+    }
+
+    function setBaseURI(string calldata uri) external onlyOwner {
+        baseURI_ = uri;
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI_;
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
