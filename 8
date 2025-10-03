@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract NFTWithRoyalties is ERC721URIStorage, ERC2981, Ownable {
+    uint256 public nextTokenId;
+
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        address royaltyReceiver,
+        uint96 feeNumerator // e.g., 500 => 5%
+    ) ERC721(name_, symbol_) {
+        _setDefaultRoyalty(royaltyReceiver, feeNumerator);
+    }
+
+    function mint(string calldata uri) external {
+        uint256 id = nextTokenId;
+        nextTokenId++;
+        _safeMint(msg.sender, id);
+        _setTokenURI(id, uri);
+    }
+
+    function setDefaultRoyalty(address receiver, uint96 feeNumerator) external onlyOwner {
+        _setDefaultRoyalty(receiver, feeNumerator);
+    }
+
+    function deleteDefaultRoyalty() external onlyOwner {
+        _deleteDefaultRoyalty();
+    }
+
+    // Override supportsInterface for ERC2981
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC721, ERC2981)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+}
