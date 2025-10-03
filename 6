@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract BasicNFT is ERC721URIStorage, Ownable {
+    uint256 public nextTokenId;
+
+    constructor(string memory name_, string memory symbol_) ERC721(name_, symbol_) {}
+
+    function mint(string calldata tokenURI_) external {
+        uint256 id = nextTokenId;
+        nextTokenId++;
+        _safeMint(msg.sender, id);
+        _setTokenURI(id, tokenURI_);
+    }
+
+    function ownerMint(address to, string calldata tokenURI_) external onlyOwner {
+        uint256 id = nextTokenId;
+        nextTokenId++;
+        _safeMint(to, id);
+        _setTokenURI(id, tokenURI_);
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+}
