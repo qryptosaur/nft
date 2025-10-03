@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
+contract AdvancedNFT is ERC721Enumerable, Ownable {
+    uint256 public constant MAX_SUPPLY = 10000;
+    uint256 public mintPrice = 0.08 ether;
+    bool public publicSale = false;
+    bytes32 public merkleRoot;
+
+    string private baseURI_;
+
+    // Provenance hash (set before reveal)
+    string public provenanceHash;
+
+    constructor(string memory baseURI) ERC721("AdvNFT", "ANFT") {
+        baseURI_ = baseURI;
+    }
+
+    function setProvenanceHash(string memory _hash) external onlyOwner {
+        require(bytes(provenanceHash).length == 0, "Already set");
+        provenanceHash = _hash;
+    }
+
+    function setBaseURI(string memory newUri) external onlyOwner {
+        baseURI_ = newUri;
+    }
+
+    function flipPublicSale() external onlyOwner {
+        publicSale = !publicSale;
+    }
+
+    function setMerkleRoot(bytes32 root) external onlyOwner {
+        merkleRoot = root;
+    }
+
+    function presaleMint(uint256 num, bytes32[] calldata proof) external payable {
+        require(!publicSale, "Presale closed");
+        require(totalSupply() + num <= MAX_SUPPLY, "Exceed supply");
+        require(msg.value >= num * mintPrice, "Wrong ETH");
+
+        // verify whitelist
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(MerkleProof.verify(proof, merkleRoot, leaf), "Not whitelisted");
+
+        for (uint256 i = 0; i < num; i++) {
+            _safeMint(msg.sender, totalSupply());
+        }
+    }
+
+    function publicMint(uint256 num) external payable {
+        require(publicSale, "Public sale not open");
+        require(totalSupply() + num <= MAX_SUPPLY, "Exceed supply");
+        require(msg.value >= num * mintPrice, "Wrong ETH");
+
+        for (uint256 i = 0; i < num; i++) {
+            _safeMint(msg.sender, totalSupply());
+        }
+    }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI_;
+    }
+}
